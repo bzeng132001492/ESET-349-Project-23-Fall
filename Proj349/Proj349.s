@@ -1,178 +1,199 @@
-		area proj349, code, readonly
-RS      equ 0x20    ; RS connects to P3.5
-RW      equ 0x40    ; RW connects to P3.6
-EN      equ 0x80    ; EN connects to P3.7
-export __main
+; Lab 6 - 16x2 LCD display
 
-; Define obstacle positions
-OBSTACLE_TOP_RIGHT      EQU 0
-OBSTACLE_BOTTOM_RIGHT   EQU 1
-OBSTACLE_NONE           EQU 2
+			area Lab6, code, readonly
+RS			equ 0x20	; RS connects to P3.5
+RW			equ 0x40	; RW connects to P3.6
+EN			equ 0x80	; EN connects to P3.7
+LO			equ 0x8F
+RO			equ 0xCF
+BUTTON_FLAG_ADDR    	EQU 0x20004000   ; Address where the button press flag is stored
+PLAYER_POSITION     	DCD 0
+OBSTACLE_POSITION	DCD 0
+COUNTER 		DCD 0
+			export __main
 
-; Global variables
-obstaclePosition        DCD 0
-playerPosition          DCD 0
+__main		proc	
 
+			
+			BL LCDInit
+			
+			MOV R3, #'O'			; Character 'O'	
+			BL LCDData				; Send character in R3 to LCD
+			
+gameloop
+		; Check for user input and handle player movement
+    		LDR R0, =BUTTON_FLAG_ADDR
+   		LDR R1, [R0]
+    		CMP R1, #1
+    		BEQ handleButtonPress
 
-__main  proc
+		; Spawn obstacle
+    		BL spawnObstacle
 
-    ; Initialize LCD
-    BL LCDInit
+    		; Move obstacle towards the player
+    		BL moveObstacle
 
-    ; Display '0' in the top-left corner
-    MOV R3, #'0'            ; Character '0'
-    MOV R0, #0              ; Row 0
-    MOV R1, #0              ; Column 0
-    BL LCDSetCursorPosition ; Set cursor position
-    BL LCDData              ; Send character in R3 to LCD
+    		; Check for collision
+    		BL checkCollision
 
-    ; Set initial obstacle position
-    MOV R0, #1              ; Set default row to 1 (top right)
-    BL RandomPosition       ; Get random position (0, 1, or 2)
-    STR R0, [obstaclePosition]
+    		; Update display and delay
+    		BL updateDisplay
+    		
+		BL delay
 
-    ; Set initial player position
-    MOV R0, #0              ; Set row to 0 (top left)
-    MOV R1, #0              ; Set column to 0
-    STR R1, [playerPosition]
+    		B gameLoop
+buttonpress
+		; Toggle player position between 0x80 and 0xC0
+    		LDR R0, [PLAYER_POSITION]   ; Load the current player position
+    		CMP R0, #0xC0               ; Compare with 0xC0
+    		BEQ setPlayerPosition0x80   ; If equal, set player position to 0x80
+    		MOV R1, #0xC0               ; If not equal, set R1 to 0xC0
+		
+setPlayerPosition0x80
+		MOV R1, #0x80               ; Set R1 to 0x80
 
-    ; Game loop
-gameLoop
-    ; Display obstacles ('X') and player based on their current positions
-    MOV R3, #'X'            ; Character 'X'
-    LDR R0, [obstaclePosition]
-    BL DisplayObstacle      ; Display obstacle at the current position
+updatePlayerPositionAndDisplay
+    		STR R1, [PLAYER_POSITION]   ; Update the player position
+spawnObstacle
+    		; Generate a random number (0 or 1) to choose the obstacle position
+    		MOV R0, #2          ; Number of positions (0 and 1)
+    		BL Rand             ; Call a subroutine to get a random number (0 or 1)
+    		CMP R0, #0
+   		BEQ setObstacleTopRight   ; If 0, set obstacle position to top right
+    		B setObstacleBottomRight  ; If 1, set obstacle position to bottom right
 
-    MOV R3, #'0'            ; Character 'P' for player
-    LDR R0, [playerPosition]
-    BL DisplayPlayer        ; Display player at the current position
+setObstacleTopRight
+    		; Set obstacle position to top right (e.g., 0xC0)
+    		MOV R1, #0xC0
+    		STR R1, [OBSTACLE_POSITION]
+    		BX LR
 
-    ; Move obstacle from right to left
-    MOV R0, #0              ; Row (not used in this case)
-    MOV R1, #1              ; Move left by 1 column
-    BL MoveObstacle
+setObstacleBottomRight
+    		; Set obstacle position to bottom right (e.g., 0x80)
+    		MOV R1, #0x80
+    		STR R1, [OBSTACLE_POSITION]
+    		BX LR
 
-    ; Move player based on input (you need to implement this part)
-    ; For simplicity, let's assume the player moves one column to the right each time
-    MOV R0, #0              ; Row 0 (top)
-    MOV R1, #1              ; Move right by 1 column
-    BL MovePlayer
+Rand
+    		; Load the current counter value
+    		LDR R0, [COUNTER]
 
-    ; Check for collision
-    BL CheckCollision
+    		; Increment the counter
+    		ADD R0, R0, #1
+    		STR R0, [COUNTER]
 
-    ; Delay to control the speed of the movement
-    BL delay
+    		; Generate either 1 or 0 by taking modulo 2
+    		AND R0, R0, #1
 
-    ; Clear previous obstacle and player positions
-    LDR R0, [obstaclePosition]
-    MOV R3, #' '            ; Clear the obstacle
-    BL DisplayObstacle      ; Display space at the previous obstacle position
+    		; The result is in R0 (either 1 or 0)
 
-    LDR R0, [playerPosition]
-    MOV R3, #' '            ; Clear the player
-    BL DisplayPlayer        ; Display space at the previous player position
+    		BX LR
+moveObstacle
+		; Load the current obstacle position
+    		LDR R0, [OBSTACLE_POSITION]
 
-    ; Check if the obstacle reaches the leftmost column
-    LDR R1, [obstaclePosition]
-    CMP R1, #0
-    BEQ resetObstacle
+   		; Decrement the obstacle position
+    		SUB R0, R0, #1
+    		STR R0, [OBSTACLE_POSITION]
 
-    B gameLoop
+    		BX LR
+checkCollision
+    		; Load player and obstacle positions
+    		LDR R0, [playerPosition]
+    		LDR R1, [obstaclePosition]
 
-resetObstacle
-    ; Reset obstacle to the rightmost column
-    MOV R0, #1              ; Set default row to 1 (top right)
-    BL RandomPosition       ; Get random position (0, 1, or 2)
-    STR R0, [obstaclePosition]
+    		; Compare player and obstacle positions
+    		CMP R0, R1
 
-    B gameLoop
+    		; Branch if equal (collision detected)
+    		BEQ stay
 
-    ; Remain here after completion
-stay    B stay
-    endp
+    		BX LR
+updateDisplay
 
-; Check for collision between obstacle and player
-CheckCollision function
-    LDR R0, [obstaclePosition]
-    LDR R1, [playerPosition]
-    CMP R0, R1
-    BEQ endGame
-    BX LR
-    endp
+		; Display player position
+    		LDR R0, [playerPosition]
+    		BL LCDData
 
-endGame
-    ; Your code to end the game (e.g., display a message and halt the program)
-    ; ...
+    		; Display obstacle position
+    		LDR R0, [obstaclePosition]
+    		BL LCDData
 
-; Display player ('P') at the current position
-DisplayPlayer function
-    BL LCDSetCursorPosition ; Set cursor position based on row (R0) and column (R1)
-    BL LCDData              ; Send character in R3 to LCD
-    BX LR
-    endp
+   		BX LR
 
-; Move player based on row (R0) and column (R1)
-MovePlayer function
-    LDR R1, [playerPosition]
-    ADD R1, R1, #1          ; Move right by 1 column
-    STR R1, [playerPosition]
-    BX LR
-    endp
+stay		B stay					; Remain here after completion
+			endp
+				
+buttonpress				
+LCDInit		function
+					
+			LDR R0, =0x40004C20		; P3: control pins
+			LDR R1, =0x40004C21		; P4: data or commands 		
+			MOV R2, #0xE0			; 1110 0000 
+			STRB R2, [R0, #0x04]	; outputs pins for EN, RW, RS
+			MOV R2, #0xFF
+			STRB R2, [R1, #0x04]	; All of Port 4 as output pins to LCD
+			
+			PUSH {LR}		
+			MOV R2, #0x38			; 2 lines, 7x5 characters, 8-bit mode		 
+			BL LCDCommand			; Send command in R2 to LCD
 
-; Initialize LCD
-LCDInit function
-    LDR R0, =0x40004C20      ; P3: control pins
-    LDR R1, =0x40004C21      ; P4: data or commands
-    MOV R2, #0xE0            ; 1110 0000
-    STRB R2, [R0, #0x04]     ; outputs pins for EN, RW, RS
-    MOV R2, #0xFF
-    STRB R2, [R1, #0x04]     ; All of Port 4 as output pins to LCD
-    PUSH {LR}
-    MOV R2, #0x38            ; 2 lines, 7x5 characters, 8-bit mode
-    BL LCDCommand            ; Send command in R2 to LCD
+			; ADD INSTRUCTIONS TO TURN ON THE DISPLAY AND THE CURSOR,
+					MOV R2, #0X0E ;sending hex code
+					BL LCDCommand
+			; CLEAR DISPLAY AND MOVE CURSOR RIGHT
+					MOV r2, #0X01
+					BL LCDCommand
+					MOV R2, #0X06
+					BL LCDCommand
+					
 
-    ; ADD INSTRUCTIONS TO TURN ON THE DISPLAY AND THE CURSOR,
-    MOV R2, #0X0E            ; sending hex code
-    BL LCDCommand
-
-    ; CLEAR DISPLAY AND MOVE CURSOR RIGHT
-    MOV R2, #0X01
-    BL LCDCommand
-    MOV R2, #0X06
-    BL LCDCommand
-    POP {LR}
-    BX LR
-    endp
-
-; Send a command to LCD
-LCDCommand function
-    STRB R2, [R1, #0x02]
-    MOV R2, #0x00            ; RS = 0, command register selected, RW = 0, write to LCD
-    ORR R2, EN
-    STRB R2, [R0, #0x02]     ; EN = 1
-    PUSH {LR}
-    BL delay
-
-    MOV R2, #0x00
-    STRB R2, [R0, #0x02]     ; EN = 0 and RS = RW = 0
-    POP {LR}
-    BX LR
-    endp
-
-; Send data to LCD
-LCDData function
-    STRB R3, [R1, #0X02]
-    MOV R2, #0xA0
-    STRB R2, [R0, #0x02]     ; EN = 1
-    PUSH {LR}
-    BL delay
-
-    MOV R3, #0x20
-    STRB R3, [R0, #0x02]
-    POP {LR}
-    BX LR
-    endp
-
-; Add a delay
-delay
+			
+			
+			
+			POP {LR}			
+			BX LR
+			endp
+				
+LCDCommand	function				; R2 brings in the command byte
+			STRB R2, [R1, #0x02]
+			MOV R2, #0x00			; RS = 0, command register selected, RW = 0, write to LCD
+			ORR R2, EN
+			STRB R2, [R0, #0x02]	; EN = 1
+			PUSH {LR}
+			BL delay
+			
+			MOV R2, #0x00
+			STRB R2, [R0, #0x02]	; EN = 0 and RS = RW = 0	
+			POP {LR}
+			BX LR
+			endp				
+				
+LCDData		function				; R3 brings in the character byte
+			
+			; COMPLETE THIS FUNCTION, REFER TO LCDCommand and TABLE 3 on HANDOUT
+					STRB R3, [R1, #0X02]
+					MOV R2, #0xA0			
+					;ORR R2, EN
+					STRB R2, [R0, #0x02]	; EN = 1
+					PUSH {LR}
+					BL delay
+					
+					MOV R3, #0x20
+					STRB R3, [R0, #0x02]	
+					POP {LR}
+					BX LR
+					
+			endp
+				
+delay		function
+			MOV R5, #50
+loop1		MOV R4, #0xFF
+loop2		SUBS R4, #1
+			BNE loop2
+			SUBS R5, #1
+			BNE loop1
+			BX LR
+			endp
+			
+			end
