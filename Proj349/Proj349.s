@@ -6,6 +6,7 @@ RW			equ 0x40	; RW connects to P3.6
 EN			equ 0x80	; EN connects to P3.7
 LO			equ 0x8F
 RO			equ 0xCF
+obstacleFlag DCD OBSTACLE_NONE
 BUTTON_FLAG_ADDR    	EQU 0x20004000   ; Address where the button press flag is stored
 PLAYER_POSITION     	DCD 0
 OBSTACLE_POSITION	DCD 0
@@ -55,7 +56,11 @@ setPlayerPosition0x80
 updatePlayerPositionAndDisplay
     		STR R1, [PLAYER_POSITION]   ; Update the player position
 spawnObstacle
-    		; Generate a random number (0 or 1) to choose the obstacle position
+    		; Check if an obstacle is already present
+    		CMP R0, #OBSTACLE_NONE
+    		BNE obstacleAlreadyPresent  ; Branch if an obstacle is already present
+
+      		; Generate a random number (0 or 1) to choose the obstacle position
     		MOV R0, #2          ; Number of positions (0 and 1)
     		BL Rand             ; Call a subroutine to get a random number (0 or 1)
     		CMP R0, #0
@@ -64,16 +69,20 @@ spawnObstacle
 
 setObstacleTopRight
     		; Set obstacle position to top right (e.g., 0xC0)
-    		MOV R1, #0xC0
+    		MOV R1, L0
     		STR R1, [OBSTACLE_POSITION]
     		BX LR
 
 setObstacleBottomRight
     		; Set obstacle position to bottom right (e.g., 0x80)
-    		MOV R1, #0x80
+    		MOV R1, R0
     		STR R1, [OBSTACLE_POSITION]
     		BX LR
-
+obstacleSpawned
+    		; Set the obstacle flag to indicate that an obstacle is present
+    		LDR R1, =OBSTACLE_TOP_RIGHT
+    		STR R1, [obstacleFlag]
+      		BX LR
 Rand
     		; Load the current counter value
     		LDR R0, [COUNTER]
