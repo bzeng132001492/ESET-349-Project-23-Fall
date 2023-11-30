@@ -17,9 +17,9 @@ OBSTACLE_START_POSITION  EQU 0x8F  ; Top right corner
 ;;R3 - LCDWrite
 ;;R4 - 
 ;;R5 - 
-;;R6
-;;R7
-;;R8
+;;R6 - Obs lane
+;;R7 - Button press 
+;;R8 - Holding button adress
 ;;R9
 ;;R10 - DNC - obs. flag
 ;;R11 - DNC - obs. pos.
@@ -39,21 +39,21 @@ __main		proc
 		BL LCDCommand
 		MOV R3, #'O'  ; Player position
 		BL LCDData
-		
+Stay B Stay		
 		
 GameLoop
     ; Check if a button has been pressed (you'll need to implement this)
     BL GameDelay
 	
-	LDR R0, =0x40004C00
+	LDR R8, =0x40004C00
 	
-	LDRB R1, [R0, #0x00]
-	AND R1, #0x11
+	LDRB R7, [R8, #0x00]
+	AND R7, #0x11
 	
-	CMP R1, #0x01
+	CMP R7, #0x01
 	BEQ SwitchOne
 	
-	CMP R1, #0x10
+	CMP R7, #0x10
 	BNE SwitchTwo
 
 ; LCD Screen address
@@ -222,7 +222,7 @@ Loop2 	SUBS R4, #1
 		BX LR
 		endp
 
-Gamedelay function ; Is here bc you do not want game to update too fast
+GameDelay function ; Is here bc you do not want game to update too fast
 		PUSH {R4, R5}
 		MOV R5, #10
 loop1 	MOV R4, #3
