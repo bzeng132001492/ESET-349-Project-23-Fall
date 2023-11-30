@@ -25,22 +25,21 @@ OBSTACLE_START_POSITION  EQU 0x8F  ; Top right corner
 ;;R11 - DNC - obs. pos.
 ;;R12 - DNC - player pos.
 
-; Initialize player and obstacle positions
-    MOV R12, #PLAYER_START_POSITION
-    MOV R11, #OBSTACLE_START_POSITION
-    MOV R10, #0x00  ; Initialize the obstacle flag
+
 			export __main
 
 __main		proc	
 
 			
 			BL LCDInit
-		MOV R2, R12 ;sending hex code
+			
+		MOV R2, #0x80 ;sending hex code
 		BL LCDCommand
 		MOV R3, #'O'  ; Player position
 		BL LCDData
-Stay B Stay		
-		
+		mov r3, #0
+            		
+;stay B stay	
 GameLoop
     ; Check if a button has been pressed (you'll need to implement this)
     BL GameDelay
@@ -55,6 +54,7 @@ GameLoop
 	
 	CMP R7, #0x10
 	BNE SwitchTwo
+	
 
 ; LCD Screen address
 	; 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16
@@ -83,9 +83,9 @@ Skip   ; Check if an obstacle is on screen
 	AND R6, R10, #0x01 ;throws the masked obs. flag into R6
 	
     CMP R6, #0x01
-    BEQ NoObstacle  ; No obstacle on screen, generate one
+    BNE NoObstacle  ; No obstacle on screen, generate one
     ; Move existing obstacle to the left
-	
+
     ; Check for collision and handle accordingly
 	CMP R12, R11
 	BEQ GameOver
@@ -212,8 +212,8 @@ LCDData		function				; R3 brings in the character byte
 				
 delay function
 		PUSH {R4, R5}
-		MOV R5, #5
-Loop1 	MOV R4, #3
+		MOV R5, #50
+Loop1 	MOV R4, #0xFF
 Loop2 	SUBS R4, #1
 		BNE Loop2
 		SUBS R5, #1
@@ -224,8 +224,8 @@ Loop2 	SUBS R4, #1
 
 GameDelay function ; Is here bc you do not want game to update too fast
 		PUSH {R4, R5}
-		MOV R5, #10
-loop1 	MOV R4, #3
+		MOV R5, #5000
+loop1 	MOV R4, #0XFF
 loop2 	SUBS R4, #1
 		BNE loop2
 		SUBS R5, #1
