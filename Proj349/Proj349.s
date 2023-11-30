@@ -5,17 +5,18 @@ EN			equ 0x80	; EN connects to P3.7
 
 ; Define some constants for player and obstacle positions
 PLAYER_START_POSITION    EQU 0x80  ; Top left corner
-OBSTACLE_START_POSITION  EQU 0x8E  ; Top right corner
+OBSTACLE_START_POSITION  EQU 0x8F  ; Top right corner
 
-; Flags
-OBSTACLE_FLAG            EQU 0x01  ; Set if obstacle is on screen
-
+; Initialize player and obstacle positions
+    MOV R12, #0x80 ;PLAYER_START_POSITION
+    MOV R11, #0x8F;OBSTACLE_START_POSITION
+    MOV R10, #0x00  ; Initialize the obstacle flag
 ;;R0
 ;;R1
 ;;R2 - LCDCommand
 ;;R3 - LCDWrite
-;;R4 - delay loop
-;;R5 - delay loop
+;;R4 - 
+;;R5 - 
 ;;R6
 ;;R7
 ;;R8
@@ -34,15 +35,16 @@ __main		proc
 
 			
 			BL LCDInit
-		;MOV R2, R12 ;sending hex code
-		;BL LCDCommand
-		;MOV R3, #'O'  ; Player position
-		;BL LCDData
+		MOV R2, R12 ;sending hex code
+		BL LCDCommand
+		MOV R3, #'O'  ; Player position
+		BL LCDData
 		
 		
 GameLoop
     ; Check if a button has been pressed (you'll need to implement this)
-    
+    BL GameDelay
+	
 	LDR R0, =0x40004C00
 	
 	LDRB R1, [R0, #0x00]
@@ -54,8 +56,16 @@ GameLoop
 	CMP R1, #0x10
 	BNE SwitchTwo
 
+; LCD Screen address
+	; 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16
+	; 80 81 82 83 84 85 86 87 88 89 8A 8B 8C 8D 8E 8F
+	; C0 C1 .......
+
+	; Update player position based on button press
+
 SwitchOne
-	CMP R1, R12
+	;move character left
+	CMP R12, #0x80
 	BEQ Skip
 	
 	SUB R12, #0x40
@@ -63,13 +73,16 @@ SwitchOne
 	B Skip
 	
 SwitchTwo
-	CMP R1, R12
+	CMP R12, #0xC0
 	BEQ Skip
 	
 	ADD R12, #0x40
 	
 Skip   ; Check if an obstacle is on screen
-    CMP R10, #0x01
+	
+	AND R6, R10, #0x01 ;throws the masked obs. flag into R6
+	
+    CMP R6, #0x01
     BEQ NoObstacle  ; No obstacle on screen, generate one
     ; Move existing obstacle to the left
 	
@@ -78,7 +91,10 @@ Skip   ; Check if an obstacle is on screen
 	BEQ GameOver
  
 	; Check if the obstacle has reached the end of the board
-    CMP R11, #0x00
+    CMP R11, #0x80
+    BEQ RemoveObstacle  ; Obstacle reached the end, remove it
+
+	CMP R11, #0xC0
     BEQ RemoveObstacle  ; Obstacle reached the end, remove it
 
 	;no collision, not at end move obs left
@@ -92,12 +108,20 @@ NoObstacle
     LDR R11, =OBSTACLE_START_POSITION
     ORR R10, #0x01  ; Set obstacle flag
 	
+	AND R6, R10, #0x02 ; Throws the masked obstacle lane position value into register 6
+	
+	CMP R6, #0x02 ; R6 is not important and can be overwritten
+	BNE UpdateDisplay
+	
+	ADD R11, #0x40 ; Makes obstacle spawn in right row
+
+	
 	B UpdateDisplay
     ; Move player and obstacle positions UpdateDisplay
 
 RemoveObstacle
     AND R10, #0x02  ; Clear obstacle flag 
-	ORR R11, #0x01
+	EOR R10, #0x02  ; Toggle the Lane Position to change spawn lane
 	
     B UpdateDisplay
 
@@ -186,14 +210,28 @@ LCDData		function				; R3 brings in the character byte
 					
 			endp
 				
-delay		function
-			MOV R5, #5
-loop1		MOV R4, #3
-loop2		SUBS R4, #1
-			BNE loop2
-			SUBS R5, #1
-			BNE loop1
-			BX LR
-			endp
-			
-			end
+delay function
+		PUSH {R4, R5}
+		MOV R5, #5
+Loop1 	MOV R4, #3
+Loop2 	SUBS R4, #1
+		BNE Loop2
+		SUBS R5, #1
+		BNE Loop1
+		POP {R5, R4}
+		BX LR
+		endp
+
+Gamedelay function ; Is here bc you do not want game to update too fast
+		PUSH {R4, R5}
+		MOV R5, #10
+loop1 	MOV R4, #3
+loop2 	SUBS R4, #1
+		BNE loop2
+		SUBS R5, #1
+		BNE loop1
+		POP {R5, R4}
+		BX LR
+		endp
+
+		end
