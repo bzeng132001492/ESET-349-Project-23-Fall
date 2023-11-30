@@ -1,137 +1,130 @@
-; Lab 6 - 16x2 LCD display
-
 			area Lab6, code, readonly
 RS			equ 0x20	; RS connects to P3.5
 RW			equ 0x40	; RW connects to P3.6
 EN			equ 0x80	; EN connects to P3.7
-LO			equ 0x8F
-RO			equ 0xCF
-BUTTON_FLAG_ADDR    	EQU 	0x20004000   ; Address where the button press flag is stored
-PLAYER_POSITION     	DCD 	0
-OBSTACLE_POSITION		DCD 	0
-COUNTER 				DCD 	0
+
+; Define some constants for player and obstacle positions
+PLAYER_START_POSITION    EQU 0x80  ; Top left corner
+OBSTACLE_START_POSITION  EQU 0x8E  ; Top right corner
+
+; Flags
+OBSTACLE_FLAG            EQU 0x01  ; Set if obstacle is on screen
+
+;;R0
+;;R1
+;;R2 - LCDCommand
+;;R3 - LCDWrite
+;;R4 - delay loop
+;;R5 - delay loop
+;;R6
+;;R7
+;;R8
+;;R9
+;;R10 - DNC - obs. flag
+;;R11 - DNC - obs. pos.
+;;R12 - DNC - player pos.
+
+; Initialize player and obstacle positions
+    MOV R12, #PLAYER_START_POSITION
+    MOV R11, #OBSTACLE_START_POSITION
+    MOV R10, #0x00  ; Initialize the obstacle flag
 			export __main
 
 __main		proc	
 
 			
 			BL LCDInit
-			
-			MOV R3, #'O'			; Character 'O'	
-			BL LCDData				; Send character in R3 to LCD
-			
-gameloop
-		; Check for user input and handle player movement
-    		LDR R0, =BUTTON_FLAG_ADDR
-			LDR R1, [R0]
-    		CMP R1, #1
-    		BEQ handleButtonPress
-
-		; Spawn obstacle
-    		BL spawnObstacle
-
-    		; Move obstacle towards the player
-    		BL moveObstacle
-
-    		; Check for collision
-    		BL checkCollision
-
-    		; Update display and delay
-    		BL updateDisplay
-    		
-			BL delay
-
-    		B gameloop
-handleButtonPress
-		; Toggle player position between 0x80 and 0xC0
-    		MOV R12, R0  ; Load the current player position
-    		CMP R0, #0xC0               ; Compare with 0xC0
-    		BEQ setPlayerPosition0x80   ; If equal, set player position to 0x80
-    		MOV R1, #0xC0               ; If not equal, set R1 to 0xC0
+		;MOV R2, R12 ;sending hex code
+		;BL LCDCommand
+		;MOV R3, #'O'  ; Player position
+		;BL LCDData
 		
-setPlayerPosition0x80
-			MOV R1, #0x80               ; Set R1 to 0x80
+		
+GameLoop
+    ; Check if a button has been pressed (you'll need to implement this)
+    
+	LDR R0, =0x40004C00
+	
+	LDRB R1, [R0, #0x00]
+	AND R1, #0x11
+	
+	CMP R1, #0x01
+	BEQ SwitchOne
+	
+	CMP R1, #0x10
+	BNE SwitchTwo
 
-updatePlayerPositionAndDisplay
-    		LDR R1, =PLAYER_POSITION   ; Update the player position
-spawnObstacle
-    		; Check if an obstacle is already present
-    		CMP R0, R10
-    		BNE obstacleAlreadyPresent  ; Branch if an obstacle is already present
+SwitchOne
+	CMP R1, R12
+	BEQ Skip
+	
+	SUB R12, #0x40
+	
+	B Skip
+	
+SwitchTwo
+	CMP R1, R12
+	BEQ Skip
+	
+	ADD R12, #0x40
+	
+Skip   ; Check if an obstacle is on screen
+    CMP R10, #0x01
+    BEQ NoObstacle  ; No obstacle on screen, generate one
+    ; Move existing obstacle to the left
+	
+    ; Check for collision and handle accordingly
+	CMP R12, R11
+	BEQ GameOver
+ 
+	; Check if the obstacle has reached the end of the board
+    CMP R11, #0x00
+    BEQ RemoveObstacle  ; Obstacle reached the end, remove it
 
-      		; Generate a random number (0 or 1) to choose the obstacle position
-    		MOV R0, #2          ; Number of positions (0 and 1)
-    		BL Rand             ; Call a subroutine to get a random number (0 or 1)
-    		CMP R0, #0
-			BEQ setObstacleTopRight   ; If 0, set obstacle position to top right
-    		B setObstacleBottomRight  ; If 1, set obstacle position to bottom right
+	;no collision, not at end move obs left
+	SUBS R11, #0x01
+	B UpdateDisplay
+	
+    
 
-setObstacleTopRight
-    		; Set obstacle position to top right (e.g., 0xC0)
-    		
-    		MOV R11, #0xCF
-    		BX LR
+NoObstacle
+    ; Generate a new obstacle
+    LDR R11, =OBSTACLE_START_POSITION
+    ORR R10, #0x01  ; Set obstacle flag
+	
+	B UpdateDisplay
+    ; Move player and obstacle positions UpdateDisplay
 
-setObstacleBottomRight
-    		; Set obstacle position to bottom right (e.g., 0x80)
-    		MOV R11, #0x8F
-    		BX LR
-obstacleSpawned
-    		; Set the obstacle flag to indicate that an obstacle is present
-    		LDR R1, =OBSTACLE_POSITION
-    		MOV R1, R10
-      		BX LR
-Rand
-    		; Load the current counter value
-    		LDR R0, =COUNTER
+RemoveObstacle
+    AND R10, #0x02  ; Clear obstacle flag 
+	ORR R11, #0x01
+	
+    B UpdateDisplay
 
-    		; Increment the counter
-    		ADD R0, R0, #1
-    		MOV R0, R10
+; Function to update display with player and obstacle positions
+UpdateDisplay
+    ; Use LCD functions to display player and obstacle positions
+    ; Example:
+	MOV R2, R12 ;sending hex code
+	BL LCDCommand
+    MOV R3, #'O'  ; Player position
+    BL LCDData
+	MOV R2, R11 ;sending hex code
+	BL LCDCommand
+    MOV R3, #'X'  ; Obstacle position
+    BL LCDData
+    ; Additional LCD updates as needed
+    ; Add delays and other necessary logic
+    ; ...
 
-    		; Generate either 1 or 0 by taking modulo 2
-    		AND R0, R10, #1
-
-    		; The result is in R0 (either 1 or 0)
-
-    		BX LR
-moveObstacle
-		; Load the current obstacle position
-    		LDR R0, =OBSTACLE_POSITION
-
-   		; Decrement the obstacle position
-    		SUB R0, R0, #1
-    		MOV R0, R12
-
-    		BX LR
-checkCollision
-    		; Load player and obstacle positions
-    		MOV R0, R6
-    		MOV R1, R7
-
-    		; Compare player and obstacle positions
-    		CMP R0, R1
-
-    		; Branch if equal (collision detected)
-    		BEQ stay
-
-    		BX LR
-updateDisplay
-
-		; Display player position
-    		LDR R0, =PLAYER_POSITION
-    		BL LCDData
-
-    		; Display obstacle position
-    		LDR R0, =OBSTACLE_POSITION
-    		BL LCDData
-
-   		BX LR
-
-stay		B stay					; Remain here after completion
-			endp
+    ; Return to the GameLoop
+    B GameLoop
+			
+GameOver
+    ; Game over logic here
+	B GameOver
+	endp				
 				
-obstacleAlreadyPresent			
 LCDInit		function
 					
 			LDR R0, =0x40004C20		; P3: control pins
@@ -194,8 +187,8 @@ LCDData		function				; R3 brings in the character byte
 			endp
 				
 delay		function
-			MOV R5, #50
-loop1		MOV R4, #0xFF
+			MOV R5, #5
+loop1		MOV R4, #3
 loop2		SUBS R4, #1
 			BNE loop2
 			SUBS R5, #1
@@ -203,4 +196,4 @@ loop2		SUBS R4, #1
 			BX LR
 			endp
 			
-				end
+			end
