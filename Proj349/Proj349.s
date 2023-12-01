@@ -5,11 +5,11 @@ EN			equ 0x80	; EN connects to P3.7
 
 ; Define some constants for player and obstacle positions
 PLAYER_START_POSITION    EQU 0x80  ; Top left corner
-OBSTACLE_START_POSITION  EQU 0x8F  ; Top right corner
+OBSTACLE_START_POSITION  EQU 0x8E  ; Top right corner
 
 ; Initialize player and obstacle positions
     MOV R12, #0x80 ;PLAYER_START_POSITION
-    MOV R11, #0x8F;OBSTACLE_START_POSITION
+    MOV R11, #0x8E;OBSTACLE_START_POSITION
     MOV R10, #0x00  ; Initialize the obstacle flag
 ;;R0
 ;;R1
@@ -30,8 +30,12 @@ OBSTACLE_START_POSITION  EQU 0x8F  ; Top right corner
 
 __main		proc	
 
+		; Initialize player and obstacle positions
+		MOV R12, #0x80 ;PLAYER_START_POSITION
+		MOV R11, #0x8E;OBSTACLE_START_POSITION
+		MOV R10, #0x00  ; Initialize the obstacle flag	
 			
-			BL LCDInit
+		BL LCDInit
 			
 		MOV R2, #0x80 ;sending hex code
 		BL LCDCommand
@@ -55,28 +59,12 @@ GameLoop
 	CMP R7, #0x10
 	BNE SwitchTwo
 	
-
 ; LCD Screen address
 	; 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16
 	; 80 81 82 83 84 85 86 87 88 89 8A 8B 8C 8D 8E 8F
 	; C0 C1 .......
 
 	; Update player position based on button press
-
-SwitchOne
-	;move character left
-	CMP R12, #0x80
-	BEQ Skip
-	
-	SUB R12, #0x40
-	
-	B Skip
-	
-SwitchTwo
-	CMP R12, #0xC0
-	BEQ Skip
-	
-	ADD R12, #0x40
 	
 Skip   ; Check if an obstacle is on screen
 	
@@ -101,8 +89,23 @@ Skip   ; Check if an obstacle is on screen
 	SUBS R11, #0x01
 	B UpdateDisplay
 	
-    
 
+SwitchOne
+	;move character left
+	CMP R12, #0x80
+	BEQ Skip
+	
+	SUB R12, #0x40
+	
+	B Skip
+	
+SwitchTwo
+	CMP R12, #0xC0
+	BEQ Skip
+	
+	ADD R12, #0x40    
+
+	B Skip
 NoObstacle
     ; Generate a new obstacle
     LDR R11, =OBSTACLE_START_POSITION
@@ -129,6 +132,9 @@ RemoveObstacle
 UpdateDisplay
     ; Use LCD functions to display player and obstacle positions
     ; Example:
+	MOV R2, #0x01
+	BL LCDCommand
+	
 	MOV R2, R12 ;sending hex code
 	BL LCDCommand
     MOV R3, #'O'  ; Player position
@@ -137,10 +143,15 @@ UpdateDisplay
 	BL LCDCommand
     MOV R3, #'X'  ; Obstacle position
     BL LCDData
-    ; Additional LCD updates as needed
-    ; Add delays and other necessary logic
-    ; ...
+	
+	;Clearing
+	;MOV R2, R11 ;sending hex code
+	;ADD R2, #1
+	;BL LCDCommand
 
+	;MOV R3, #' '  ; Obstacle position
+    ;BL LCDData
+	
     ; Return to the GameLoop
     B GameLoop
 			
