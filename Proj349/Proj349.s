@@ -157,6 +157,32 @@ UpdateDisplay
 			
 GameOver
     		; Game over logic here
+      MOV R2, #0x01
+	BL LCDCommand
+	
+	MOV R2, #0x80
+	BL LCDCommand
+		
+	MOV R3, #'G'  ; Player position
+    BL LCDData
+	MOV R3, #'A'  ; Player position
+    BL LCDData
+	MOV R3, #'M'  ; Player position
+    BL LCDData
+	MOV R3, #'E'  ; Player position
+    BL LCDData
+	MOV R3, #' '  ; Player position
+    BL LCDData
+	MOV R3, #'O'  ; Player position
+    BL LCDData
+	MOV R3, #'V'  ; Player position
+    BL LCDData
+	MOV R3, #'E'  ; Player position
+    BL LCDData
+	MOV R3, #'R'  ; Player position
+    BL LCDData
+	B GameOver
+	endp				
 		B GameOver
 		endp				
 				
