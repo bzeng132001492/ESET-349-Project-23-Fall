@@ -8,9 +8,19 @@ PLAYER_START_POSITION   	EQU 0x80  ; Top left corner
 OBSTACLE_START_POSITION  	EQU 0x8E  ; Top right corner
 
 ; Initialize player and obstacle positions
-    		MOV R12, #0x80 ;PLAYER_START_POSITION
-   	 	MOV R11, #0x8E;OBSTACLE_START_POSITION
-    		MOV R10, #0x00  ; Initialize the obstacle flag
+      		; Initialize player and obstacle positions
+		MOV R12, #0x80	; PLAYER_START_POSITION
+		MOV R11, #0x8E	; OBSTACLE_START_POSITION
+		MOV R10, #0x00  ; Initialize the obstacle flag
+	
+		; Port Initialization
+		LDR R8, =0x40004C40	
+		MOV R2, #0x00
+		STRB R2, [R8, #0x04]
+		MOV R2, #0xC0
+		STRB R2, [R8, #0x06]
+		;MOV R1, #0x00
+		STRB R2, [R8, #0x02]
 
 ;;R0
 ;;R1
@@ -30,11 +40,6 @@ OBSTACLE_START_POSITION  	EQU 0x8E  ; Top right corner
 		export __main
 
 __main		proc	
-
-		; Initialize player and obstacle positions
-		MOV R12, #0x80 ;PLAYER_START_POSITION
-		MOV R11, #0x8E;OBSTACLE_START_POSITION
-		MOV R10, #0x00  ; Initialize the obstacle flag	
 			
 		BL LCDInit
 			
@@ -43,21 +48,16 @@ __main		proc
 		MOV R3, #'O'  ; Player position
 		BL LCDData
 		mov r3, #0
-            		
-;stay B stay	
+            			
 GameLoop
     		; Check if a button has been pressed (you'll need to implement this)
     		BL GameDelay
-	
-		LDR R8, =0x40004C00		; Port 1 base address
-	
 		LDRB R7, [R8, #0x00]
-		AND R7, #0xA0			; mask pin 6 & 7
+		AND R7, #0xC0			; mask pin 6 & 7
 	
-		CMP R7, #0x80			; assign pin 7 to switch one
+		CMP R7, #0x40			; assign pin 7 to switch one MOVE DOWN RIGHT BUTTON
 		BEQ SwitchOne
-	
-		CMP R7, #0x40			; assign pin 6 to switch two
+			; assign pin 6 to switch two MOVE UP LEFT BUTTON
 		BNE SwitchTwo
 	
 ; LCD Screen address
@@ -92,18 +92,18 @@ Skip   		; Check if an obstacle is on screen
 
 SwitchOne
 		;move character left
-		CMP R12, #0x80
+		CMP R12, #0xC0
 		BEQ Skip
 	
-		SUB R12, #0x40
+		ADD R12, #0x40
 	
 		B Skip
 	
 SwitchTwo
-		CMP R12, #0xC0
+		CMP R12, #0x80
 		BEQ Skip
 	
-		ADD R12, #0x40    
+		SUB R12, #0x40    
 
 		B Skip
 NoObstacle
