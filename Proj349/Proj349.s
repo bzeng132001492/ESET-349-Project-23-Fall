@@ -1,4 +1,4 @@
-			area Lab6, code, readonly
+			area Proj349, code, readonly
 RS			equ 0x20	; RS connects to P3.5
 RW			equ 0x40	; RW connects to P3.6
 EN			equ 0x80	; EN connects to P3.7
@@ -189,7 +189,6 @@ GameOver
 
 Stay B Stay
 
-
 	endp				
 		
 
@@ -215,10 +214,6 @@ LCDInit		function
 			MOV R2, #0X06
 			BL LCDCommand
 					
-
-			
-			
-			
 			POP {LR}			
 			BX LR
 	endp
